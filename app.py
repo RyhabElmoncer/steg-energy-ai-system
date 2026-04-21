@@ -20,7 +20,7 @@ from modules.module1_data import (
 # ==============================================================
 st.set_page_config(
     page_title="Centrale Goulette - STEG",
-    page_icon="",
+    page_icon="⚡",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -67,8 +67,9 @@ with st.sidebar:
             "Module 3 — Prédiction ML",
             "Module 4 — Optimisation",
             "Module 5 — Dashboard",
+            "Module 6 — Discussion IA",
         ],
-        index=1,
+        index=0,
         key="navigation"
     )
     st.markdown("---")
@@ -81,7 +82,7 @@ with st.sidebar:
 if page == "Accueil":
     st.markdown('<div class="main-title">Bienvenue sur le Système de Diagnostic Énergétique</div>', unsafe_allow_html=True)
     col1, col2, col3 = st.columns(3)
-    with col1: st.markdown('<div class="kpi-card"><div class="kpi-value">5</div><div class="kpi-label">Modules disponibles</div></div>', unsafe_allow_html=True)
+    with col1: st.markdown('<div class="kpi-card"><div class="kpi-value">6</div><div class="kpi-label">Modules disponibles</div></div>', unsafe_allow_html=True)
     with col2: st.markdown('<div class="kpi-card"><div class="kpi-value">180 MW</div><div class="kpi-label">Capacité nominale</div></div>', unsafe_allow_html=True)
     with col3: st.markdown('<div class="kpi-card"><div class="kpi-value">~38%</div><div class="kpi-label">Rendement nominal</div></div>', unsafe_allow_html=True)
     st.markdown("""
@@ -93,6 +94,7 @@ if page == "Accueil":
     | **Module 3** | Prédiction ML (Random Forest + Régression) |
     | **Module 4** | Optimisation de la charge |
     | **Module 5** | Tableau de bord complet |
+    | **Module 6** | Discussion IA — Diagnostic prédictif |
 
     Commencez par le Module 1.
     """)
@@ -108,6 +110,11 @@ elif page == "Module 1 — Données":
 
     if fichier is None:
         st.markdown('<div class="alerte-bleue">Colonnes attendues : Date · Puissance_MW · Débit_Combustible_Nm3h · Temp_Vapeur_C · Pression_Vapeur_bar · Temp_Condenseur_C · Charge_%</div>', unsafe_allow_html=True)
+        if st.session_state.get('df_pret'):
+            df_propre = st.session_state['df']
+            st.markdown("---")
+            st.markdown("### Etape 5 — Aperçu (données déjà chargées)")
+            st.markdown('<div class="alerte-verte">Données déjà chargées. Passez au Module 2.</div>', unsafe_allow_html=True)
         st.stop()
 
     df_brut, msg = charger_fichier(fichier)
@@ -121,22 +128,25 @@ elif page == "Module 1 — Données":
     valide, manquantes, en_trop = verifier_colonnes(df_brut)
     col1, col2 = st.columns(2)
     with col1:
-        if valide: st.markdown('<div class="alerte-verte">Toutes les colonnes présentes !</div>', unsafe_allow_html=True)
+        if valide:
+            st.markdown('<div class="alerte-verte">Toutes les colonnes présentes !</div>', unsafe_allow_html=True)
         else:
             st.markdown(f'<div class="alerte-rouge">Manquantes : {", ".join(manquantes)}</div>', unsafe_allow_html=True)
             st.stop()
     with col2:
-        if en_trop: st.markdown(f'<div class="alerte-orange">Colonnes ignorées : {", ".join(en_trop)}</div>', unsafe_allow_html=True)
-        else: st.markdown('<div class="alerte-verte">Aucune colonne inattendue</div>', unsafe_allow_html=True)
+        if en_trop:
+            st.markdown(f'<div class="alerte-orange">Colonnes ignorées : {", ".join(en_trop)}</div>', unsafe_allow_html=True)
+        else:
+            st.markdown('<div class="alerte-verte">Aucune colonne inattendue</div>', unsafe_allow_html=True)
 
     st.markdown("---")
     st.markdown("### Etape 3 — Rapport de qualité")
     rapport = analyser_qualite(df_brut)
     col1, col2, col3, col4 = st.columns(4)
-    with col1: st.metric("Lignes",       rapport['nb_lignes'])
-    with col2: st.metric("Manquantes",   rapport['total_manquantes'])
-    with col3: st.metric("Outliers",     rapport['total_outliers'])
-    with col4: st.metric("Doublons",     rapport['doublons'])
+    with col1: st.metric("Lignes",     rapport['nb_lignes'])
+    with col2: st.metric("Manquantes", rapport['total_manquantes'])
+    with col3: st.metric("Outliers",   rapport['total_outliers'])
+    with col4: st.metric("Doublons",   rapport['doublons'])
 
     with st.expander("Détail valeurs manquantes"):
         df_m = pd.DataFrame.from_dict(rapport['valeurs_manquantes'], orient='index', columns=['Nb'])
@@ -166,33 +176,28 @@ elif page == "Module 1 — Données":
         cls = "alerte-verte" if pct >= 90 else "alerte-orange"
         st.markdown(f'<div class="{cls}">{pct}% des lignes conservées</div>', unsafe_allow_html=True)
 
-# ─── ÉTAPE 5 : TOUJOURS AFFICHÉ si données prêtes ───────────────────
-if st.session_state.get('df_pret'):
-    df_propre = st.session_state['df']
-
-    st.markdown("---")
-    st.markdown("### Etape 5 — Aperçu")
-    tab1, tab2, tab3 = st.tabs(["Tableau", "Statistiques", "Graphiques"])
-    with tab1:
-        st.dataframe(df_propre, use_container_width=True, height=350)
-        st.download_button("Télécharger (CSV)", data=df_propre.to_csv(index=False, encoding='utf-8-sig'), file_name="donnees_propres.csv", mime="text/csv")
-    with tab2:
-        st.dataframe(get_statistiques(df_propre), use_container_width=True)
-        for al in verifier_plages(df_propre):
-            st.markdown(f'<div class="alerte-orange"><b>{al["colonne"]}</b> : {al["nb_hors_plage"]} valeurs hors [{al["plage_normale"]}]</div>', unsafe_allow_html=True)
-    with tab3:
-        col_g = st.selectbox("Paramètre :", [c for c in PLAGES_NORMALES if c in df_propre.columns], key="sel_g1")
-        if 'Date' in df_propre.columns:
-            fig = px.line(df_propre, x='Date', y=col_g, color_discrete_sequence=["#2E75B6"])
-            mn, mx = PLAGES_NORMALES.get(col_g, (None, None))
-            if mn: fig.add_hline(y=mn, line_dash="dash", line_color="orange", annotation_text="Min")
-            if mx: fig.add_hline(y=mx, line_dash="dash", line_color="red",    annotation_text="Max")
-            fig.update_layout(plot_bgcolor='white', paper_bgcolor='white')
-            st.plotly_chart(fig, use_container_width=True)
-
-    st.markdown('<div class="alerte-verte">Module 1 terminé ! Passez au Module 2.</div>', unsafe_allow_html=True)
-elif st.session_state.get('df_pret'):
-    st.markdown('<div class="alerte-verte">Données déjà chargées. Passez au Module 2.</div>', unsafe_allow_html=True)
+    if st.session_state.get('df_pret'):
+        df_propre = st.session_state['df']
+        st.markdown("---")
+        st.markdown("### Etape 5 — Aperçu")
+        tab1, tab2, tab3 = st.tabs(["Tableau", "Statistiques", "Graphiques"])
+        with tab1:
+            st.dataframe(df_propre, use_container_width=True, height=350)
+            st.download_button("Télécharger (CSV)", data=df_propre.to_csv(index=False, encoding='utf-8-sig'), file_name="donnees_propres.csv", mime="text/csv")
+        with tab2:
+            st.dataframe(get_statistiques(df_propre), use_container_width=True)
+            for al in verifier_plages(df_propre):
+                st.markdown(f'<div class="alerte-orange"><b>{al["colonne"]}</b> : {al["nb_hors_plage"]} valeurs hors [{al["plage_normale"]}]</div>', unsafe_allow_html=True)
+        with tab3:
+            col_g = st.selectbox("Paramètre :", [c for c in PLAGES_NORMALES if c in df_propre.columns], key="sel_g1")
+            if 'Date' in df_propre.columns:
+                fig = px.line(df_propre, x='Date', y=col_g, color_discrete_sequence=["#2E75B6"])
+                mn, mx = PLAGES_NORMALES.get(col_g, (None, None))
+                if mn: fig.add_hline(y=mn, line_dash="dash", line_color="orange", annotation_text="Min")
+                if mx: fig.add_hline(y=mx, line_dash="dash", line_color="red",    annotation_text="Max")
+                fig.update_layout(plot_bgcolor='white', paper_bgcolor='white')
+                st.plotly_chart(fig, use_container_width=True)
+        st.markdown('<div class="alerte-verte">Module 1 terminé ! Passez au Module 2.</div>', unsafe_allow_html=True)
 
 # ==============================================================
 # MODULE 2
@@ -218,9 +223,9 @@ elif page == "Module 2 — Diagnostic":
 
     st.markdown("---")
     col1, col2, col3, col4 = st.columns(4)
-    with col1: st.metric("Puissance",          f"{df['Puissance_MW'].mean():.1f} MW")
-    with col2: st.metric("Rendement",           f"{df['Rendement_%'].mean():.1f} %")
-    with col3: st.metric("Conso. spécifique",   f"{df['Conso_Specifique_Nm3MWh'].mean():.0f} Nm³/MWh")
+    with col1: st.metric("Puissance",        f"{df['Puissance_MW'].mean():.1f} MW")
+    with col2: st.metric("Rendement",         f"{df['Rendement_%'].mean():.1f} %")
+    with col3: st.metric("Conso. spécifique", f"{df['Conso_Specifique_Nm3MWh'].mean():.0f} Nm³/MWh")
     with col4:
         nb_a = (df['Anomalie'] != 'Normal').sum()
         st.metric("Anomalies", nb_a)
@@ -297,7 +302,6 @@ elif page == "Module 3 — Prédiction ML":
         fig.add_trace(go.Scatter(x=[mn,mx], y=[mn,mx], mode='lines', line=dict(color='red', dash='dash')))
         fig.update_layout(xaxis_title="Réelles (MW)", yaxis_title="Prédites (MW)", plot_bgcolor='white', paper_bgcolor='white')
         st.plotly_chart(fig, use_container_width=True)
-
     with tab2:
         imp = importance_features(modeles)
         if imp is not None:
@@ -306,7 +310,6 @@ elif page == "Module 3 — Prédiction ML":
             st.plotly_chart(fig2, use_container_width=True)
             for _, row in imp.iterrows():
                 st.markdown(f"- **{row['Feature']}** : **{round(row['Importance']*100,1)}%**")
-
     with tab3:
         col1, col2, col3 = st.columns(3)
         with col1: c_in = st.slider("Charge (%)",           30,    100,   75,    key="c_pred")
@@ -337,32 +340,28 @@ elif page == "Module 4 — Optimisation":
 
     df = st.session_state['df'].copy()
 
-    # ── SIMULATION ───────────────────────────────────────────────
     st.markdown("### Simulation par niveau de charge")
     st.markdown("Comparaison des performances pour 4 niveaux de charge : **40% · 60% · 80% · 90%**")
 
     with st.spinner("Simulation en cours..."):
-        resultats    = simuler_charges(df)
-        charge_opt   = get_charge_optimale(resultats)
+        resultats      = simuler_charges(df)
+        charge_opt     = get_charge_optimale(resultats)
         recommandation = generer_recommandation(charge_opt, resultats)
-        economies    = estimer_economies(resultats)
+        economies      = estimer_economies(resultats)
 
-    # ── RECOMMANDATION ───────────────────────────────────────────
     st.markdown("---")
     st.markdown("### Recommandation")
     st.markdown(f'<div class="alerte-verte">{recommandation}</div>', unsafe_allow_html=True)
 
-    # ── KPIs CHARGE OPTIMALE ─────────────────────────────────────
     if charge_opt is not None:
         st.markdown("---")
         st.markdown("### Indicateurs à la charge optimale")
         col1, col2, col3, col4 = st.columns(4)
-        with col1: st.metric("Charge optimale",    f"{charge_opt['Charge_%']} %")
-        with col2: st.metric("Puissance",           f"{charge_opt['Puissance_MW']} MW")
-        with col3: st.metric("Rendement",           f"{charge_opt['Rendement_%']} %")
-        with col4: st.metric("Conso. spécifique",   f"{charge_opt['Conso_Specifique']} Nm³/MWh")
+        with col1: st.metric("Charge optimale",  f"{charge_opt['Charge_%']} %")
+        with col2: st.metric("Puissance",         f"{charge_opt['Puissance_MW']} MW")
+        with col3: st.metric("Rendement",         f"{charge_opt['Rendement_%']} %")
+        with col4: st.metric("Conso. spécifique", f"{charge_opt['Conso_Specifique']} Nm³/MWh")
 
-    # ── ECONOMIES ESTIMEES ───────────────────────────────────────
     if economies:
         st.markdown("---")
         st.markdown("### Économies annuelles estimées (vs pire configuration)")
@@ -371,16 +370,13 @@ elif page == "Module 4 — Optimisation":
         with col2: st.metric("Économie gaz/an",     f"{economies['eco_nm3']:,.0f} Nm³")
         with col3: st.metric("Économie financière", f"{economies['eco_dt']:,.0f} DT/an")
 
-    # ── TABLEAU COMPARATIF ───────────────────────────────────────
     st.markdown("---")
     st.markdown("### Tableau comparatif des scénarios")
-
     for i, row in resultats.iterrows():
         is_opt = (row['Charge_%'] == charge_opt['Charge_%']) if charge_opt is not None else False
         bg     = "#E8F5E9" if is_opt else ("#FFF8F0" if i % 2 == 0 else "#F9F9F9")
         border = "2px solid #2E7D32" if is_opt else "1px solid #EEEEEE"
         badge  = " [OPTIMAL]" if is_opt else ""
-
         st.markdown(f"""
         <div style="background:{bg}; border:{border}; border-radius:8px; padding:14px 20px; margin:6px 0; display:flex; justify-content:space-between; align-items:center;">
             <span style="font-weight:700; font-size:1.1rem; color:#1F4E79;">Charge {row['Charge_%']}%{badge}</span>
@@ -391,30 +387,21 @@ elif page == "Module 4 — Optimisation":
         </div>
         """, unsafe_allow_html=True)
 
-    # ── GRAPHIQUES ───────────────────────────────────────────────
     st.markdown("---")
     tab1, tab2 = st.tabs(["Rendement par charge", "Consommation spécifique"])
-
     with tab1:
-        fig1 = px.bar(
-            resultats, x='Charge_%', y='Rendement_%',
+        fig1 = px.bar(resultats, x='Charge_%', y='Rendement_%',
             title="Rendement thermique par niveau de charge",
-            color='Rendement_%', color_continuous_scale='Blues',
-            text='Rendement_%'
-        )
+            color='Rendement_%', color_continuous_scale='Blues', text='Rendement_%')
         if charge_opt is not None:
             fig1.add_vline(x=charge_opt['Charge_%'], line_dash="dash", line_color="green", annotation_text="Optimal")
         fig1.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
         fig1.update_layout(plot_bgcolor='white', paper_bgcolor='white', xaxis_title="Charge (%)", yaxis_title="Rendement (%)")
         st.plotly_chart(fig1, use_container_width=True)
-
     with tab2:
-        fig2 = px.bar(
-            resultats, x='Charge_%', y='Conso_Specifique',
+        fig2 = px.bar(resultats, x='Charge_%', y='Conso_Specifique',
             title="Consommation spécifique par niveau de charge",
-            color='Conso_Specifique', color_continuous_scale='Reds_r',
-            text='Conso_Specifique'
-        )
+            color='Conso_Specifique', color_continuous_scale='Reds_r', text='Conso_Specifique')
         fig2.update_traces(texttemplate='%{text:.0f}', textposition='outside')
         fig2.update_layout(plot_bgcolor='white', paper_bgcolor='white', xaxis_title="Charge (%)", yaxis_title="Conso. spécifique (Nm³/MWh)")
         st.plotly_chart(fig2, use_container_width=True)
@@ -436,7 +423,6 @@ elif page == "Module 5 — Dashboard":
     from modules.module4_optimisation import simuler_charges, get_charge_optimale
     from modules.module5_dashboard    import calculer_kpis, generer_alertes, calculer_tendances
 
-    # ── Préparer les données enrichies ───────────────────────────
     df = st.session_state['df'].copy()
     if 'Rendement_%' not in df.columns:
         df = calculer_rendement(df)
@@ -448,12 +434,10 @@ elif page == "Module 5 — Dashboard":
     tendances = calculer_tendances(df)
     etat, message_etat, couleur = get_etat_systeme(df)
 
-    # ── BANDEAU ETAT GLOBAL ──────────────────────────────────────
     css = {'green':'alerte-verte','orange':'alerte-orange','red':'alerte-rouge'}.get(couleur,'alerte-bleue')
     st.markdown(f'<div class="{css}">{message_etat}</div>', unsafe_allow_html=True)
     st.markdown(f"*Période analysée : **{kpis['date_debut']}** → **{kpis['date_fin']}** ({kpis['nb_jours']} jours · {kpis['nb_mesures']} mesures)*")
 
-    # ── KPIs PRINCIPAUX ──────────────────────────────────────────
     st.markdown("---")
     st.markdown("### Indicateurs en Temps Quasi Réel")
 
@@ -468,33 +452,26 @@ elif page == "Module 5 — Dashboard":
         delta_c = f"{tendances['conso_delta']:+.1f}" if tendances and 'conso_delta' in tendances else None
         st.metric("Conso. spécifique",  f"{kpis['conso_actuelle']} Nm³/MWh", delta=delta_c, delta_color="inverse")
     with col4:
-        st.metric("Charge actuelle",    f"{kpis['charge_actuelle']} %")
+        st.metric("Charge actuelle", f"{kpis['charge_actuelle']} %")
 
-    # Ligne 2 KPIs secondaires
     col1, col2, col3, col4 = st.columns(4)
-    with col1: st.metric("Puissance moy.",    f"{kpis['puissance_moyenne']} MW")
-    with col2: st.metric("Rendement moy.",    f"{kpis['rendement_moyen']} %")
-    with col3: st.metric("Conso. moy.",       f"{kpis['conso_moyenne']} Nm³/MWh")
-    with col4: st.metric("Anomalies",         f"{kpis['nb_anomalies']} ({kpis['pct_anomalies']}%)")
+    with col1: st.metric("Puissance moy.", f"{kpis['puissance_moyenne']} MW")
+    with col2: st.metric("Rendement moy.", f"{kpis['rendement_moyen']} %")
+    with col3: st.metric("Conso. moy.",    f"{kpis['conso_moyenne']} Nm³/MWh")
+    with col4: st.metric("Anomalies",      f"{kpis['nb_anomalies']} ({kpis['pct_anomalies']}%)")
 
-    # ── GRAPHIQUES ───────────────────────────────────────────────
     st.markdown("---")
     st.markdown("### Evolution Temporelle")
-
     tab1, tab2, tab3 = st.tabs(["Puissance & Charge", "Rendement", "Consommation"])
 
     with tab1:
         fig1 = go.Figure()
-        fig1.add_trace(go.Scatter(x=df['Date'], y=df['Puissance_MW'], name='Puissance (MW)',
-            line=dict(color='#2E75B6', width=1.5)))
-        fig1.add_trace(go.Scatter(x=df['Date'], y=df['Charge_%'], name='Charge (%)',
-            line=dict(color='#C55A11', width=1.5, dash='dot'), yaxis='y2'))
-        fig1.update_layout(
-            title="Puissance produite et Charge",
+        fig1.add_trace(go.Scatter(x=df['Date'], y=df['Puissance_MW'], name='Puissance (MW)', line=dict(color='#2E75B6', width=1.5)))
+        fig1.add_trace(go.Scatter(x=df['Date'], y=df['Charge_%'], name='Charge (%)', line=dict(color='#C55A11', width=1.5, dash='dot'), yaxis='y2'))
+        fig1.update_layout(title="Puissance produite et Charge",
             yaxis=dict(title="Puissance (MW)", color='#2E75B6'),
             yaxis2=dict(title="Charge (%)", overlaying='y', side='right', color='#C55A11'),
-            plot_bgcolor='white', paper_bgcolor='white', legend=dict(orientation='h', y=-0.2)
-        )
+            plot_bgcolor='white', paper_bgcolor='white', legend=dict(orientation='h', y=-0.2))
         st.plotly_chart(fig1, use_container_width=True)
 
     with tab2:
@@ -517,24 +494,15 @@ elif page == "Module 5 — Dashboard":
         fig3.update_layout(title="Consommation Spécifique (Nm³/MWh)", plot_bgcolor='white', paper_bgcolor='white')
         st.plotly_chart(fig3, use_container_width=True)
 
-    # ── ALERTES ──────────────────────────────────────────────────
     st.markdown("---")
     st.markdown("### Alertes & Recommandations")
-
     for al in alertes:
-        css_map = {
-            'critique': 'alerte-rouge',
-            'alerte':   'alerte-orange',
-            'ok':       'alerte-verte',
-            'info':     'alerte-bleue',
-        }
+        css_map = {'critique':'alerte-rouge','alerte':'alerte-orange','ok':'alerte-verte','info':'alerte-bleue'}
         css_al = css_map.get(al['niveau'], 'alerte-bleue')
         st.markdown(f'<div class="{css_al}"><b>{al["titre"]}</b><br>{al["message"]}</div>', unsafe_allow_html=True)
 
-    # ── RESUME OPTIMISATION ──────────────────────────────────────
     st.markdown("---")
     st.markdown("### Résumé Optimisation")
-
     resultats_opt = simuler_charges(df)
     charge_opt    = get_charge_optimale(resultats_opt)
 
@@ -562,3 +530,151 @@ elif page == "Module 5 — Dashboard":
 
     st.markdown("---")
     st.markdown('<div class="alerte-verte">Dashboard complet ! Tous les modules sont opérationnels.</div>', unsafe_allow_html=True)
+
+# ==============================================================
+# MODULE 6 — DISCUSSION IA
+# ==============================================================
+elif page == "Module 6 — Discussion IA":
+    st.markdown('<div class="main-title">Module 6 — Discussion IA</div>', unsafe_allow_html=True)
+
+    from modules.module6_discussion import (
+        construire_system_prompt, appeler_api_claude, SUGGESTIONS
+    )
+    from modules.module2_diagnostic import (
+        calculer_rendement, calculer_consommation_specifique, detecter_anomalies
+    )
+
+    # ── Enrichir df si disponible ─────────────────────────────────
+    df_ctx = None
+    if st.session_state.get('df_pret'):
+        df_ctx = st.session_state['df'].copy()
+        if 'Rendement_%' not in df_ctx.columns:
+            df_ctx = calculer_rendement(df_ctx)
+            df_ctx = calculer_consommation_specifique(df_ctx)
+            df_ctx, _ = detecter_anomalies(df_ctx)
+
+    # ── Bannière contexte ─────────────────────────────────────────
+    if df_ctx is not None:
+        nb_mes   = len(df_ctx)
+        rend_moy = round(df_ctx['Rendement_%'].mean(), 1) if 'Rendement_%' in df_ctx.columns else "—"
+        nb_ano   = int((df_ctx['Anomalie'] != 'Normal').sum()) if 'Anomalie' in df_ctx.columns else "—"
+        st.markdown(
+            f'<div class="alerte-verte">'
+            f'Contexte chargé — <b>{nb_mes}</b> mesures · Rendement moy. <b>{rend_moy}%</b> · '
+            f'<b>{nb_ano}</b> anomalies · L\'IA analyse vos données en temps réel.'
+            f'</div>',
+            unsafe_allow_html=True
+        )
+    else:
+        st.markdown(
+            '<div class="alerte-bleue">'
+            'Aucune donnée chargée — L\'IA répond en mode expert général. '
+            'Importez un fichier dans le Module 1 pour des analyses personnalisées.'
+            '</div>',
+            unsafe_allow_html=True
+        )
+
+    st.markdown("---")
+
+    # ── Initialiser l'historique ───────────────────────────────────
+    if 'chat_history' not in st.session_state:
+        st.session_state['chat_history'] = []
+    if 'chat_input_key' not in st.session_state:
+        st.session_state['chat_input_key'] = 0
+
+    # ── Suggestions ───────────────────────────────────────────────
+    with st.expander("Questions suggérées", expanded=False):
+        for bloc in SUGGESTIONS:
+            st.markdown(f"**{bloc['categorie']}**")
+            for idx, q in enumerate(bloc['questions']):
+                btn_key = f"sug_{bloc['categorie']}_{idx}"
+                label   = q[:90] + "…" if len(q) > 90 else q
+                if st.button(label, key=btn_key, use_container_width=True):
+                    st.session_state['question_suggeree'] = q
+                    st.session_state['auto_envoyer'] = True
+                    st.rerun()
+            st.markdown("")
+
+    st.markdown("---")
+    st.markdown("### Conversation")
+
+    # ── Affichage historique ───────────────────────────────────────
+    if not st.session_state['chat_history']:
+        st.markdown(
+            '<div class="alerte-bleue">'
+            'Bonjour — Assistant expert en diagnostic énergétique, Centrale de La Goulette.<br>'
+            'Posez une question sur les performances, les anomalies, les pannes ou l\'optimisation.'
+            '</div>',
+            unsafe_allow_html=True
+        )
+    else:
+        for msg in st.session_state['chat_history']:
+            if msg['role'] == 'user':
+                st.markdown(
+                    f'<div style="background:#EEF2F7; border-radius:10px 10px 2px 10px; '
+                    f'padding:10px 16px; margin:6px 0 4px 80px; color:#1F4E79; font-size:0.95rem;">'
+                    f'<span style="font-weight:600; font-size:0.75rem; text-transform:uppercase; '
+                    f'letter-spacing:0.08em; opacity:0.6;">Vous</span><br>{msg["content"]}</div>',
+                    unsafe_allow_html=True
+                )
+            else:
+                content_html = msg['content'].replace('\n', '<br>')
+                st.markdown(
+                    f'<div style="background:#F7FAFF; border-left:3px solid #2E75B6; '
+                    f'border-radius:0 10px 10px 0; padding:12px 18px; margin:4px 80px 6px 0; '
+                    f'color:#0D1B2A; font-size:0.95rem; line-height:1.6;">'
+                    f'<span style="font-weight:600; font-size:0.75rem; text-transform:uppercase; '
+                    f'letter-spacing:0.08em; color:#2E75B6;">Assistant</span><br>{content_html}</div>',
+                    unsafe_allow_html=True
+                )
+
+    st.markdown("---")
+
+    # ── Zone de saisie ────────────────────────────────────────────
+    valeur_initiale = st.session_state.pop('question_suggeree', "")
+    auto            = st.session_state.pop('auto_envoyer', False)
+
+    col_input, col_btn, col_clear = st.columns([6, 1, 1])
+    with col_input:
+        user_input = st.text_input(
+            "Votre question :",
+            value=valeur_initiale,
+            placeholder="Ex : Quelles sont les causes d'une chute de rendement ?",
+            key=f"chat_input_{st.session_state['chat_input_key']}",
+            label_visibility="collapsed"
+        )
+    with col_btn:
+        envoyer = st.button("Envoyer", use_container_width=True, key="btn_envoyer")
+    with col_clear:
+        if st.button("Effacer", use_container_width=True, key="btn_clear"):
+            st.session_state['chat_history'] = []
+            st.session_state['chat_input_key'] += 1
+            st.rerun()
+
+    # ── Envoi et appel API ────────────────────────────────────────
+    question_a_envoyer = None
+    if auto and valeur_initiale.strip():
+        question_a_envoyer = valeur_initiale.strip()
+    elif envoyer and user_input.strip():
+        question_a_envoyer = user_input.strip()
+
+    if question_a_envoyer:
+        st.session_state['chat_history'].append({"role": "user", "content": question_a_envoyer})
+        system_prompt = construire_system_prompt(df_ctx)
+        with st.spinner("Analyse en cours…"):
+            reponse, statut = appeler_api_claude(
+                historique=st.session_state['chat_history'],
+                system_prompt=system_prompt
+            )
+        st.session_state['chat_history'].append({"role": "assistant", "content": reponse})
+        st.session_state['chat_input_key'] += 1
+        st.rerun()
+
+    # ── Compteur ──────────────────────────────────────────────────
+    if st.session_state['chat_history']:
+        nb_tours = len(st.session_state['chat_history']) // 2
+        st.markdown(
+            f'<div style="text-align:right; color:#aaa; font-size:0.78rem; margin-top:8px;">'
+            f'{nb_tours} échange(s) dans cette session</div>',
+            unsafe_allow_html=True
+        )
