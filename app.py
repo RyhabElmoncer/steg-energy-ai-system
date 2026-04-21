@@ -166,30 +166,33 @@ elif page == "Module 1 — Données":
         cls = "alerte-verte" if pct >= 90 else "alerte-orange"
         st.markdown(f'<div class="{cls}">{pct}% des lignes conservées</div>', unsafe_allow_html=True)
 
-        st.markdown("---")
-        st.markdown("### Etape 5 — Aperçu")
-        tab1, tab2, tab3 = st.tabs(["Tableau", "Statistiques", "Graphiques"])
-        with tab1:
-            st.dataframe(df_propre, use_container_width=True, height=350)
-            st.download_button("Télécharger (CSV)", data=df_propre.to_csv(index=False, encoding='utf-8-sig'), file_name="donnees_propres.csv", mime="text/csv")
-        with tab2:
-            st.dataframe(get_statistiques(df_propre), use_container_width=True)
-            for al in verifier_plages(df_propre):
-                st.markdown(f'<div class="alerte-orange"><b>{al["colonne"]}</b> : {al["nb_hors_plage"]} valeurs hors [{al["plage_normale"]}]</div>', unsafe_allow_html=True)
-        with tab3:
-            col_g = st.selectbox("Paramètre :", [c for c in PLAGES_NORMALES if c in df_propre.columns], key="sel_g1")
-            if 'Date' in df_propre.columns:
-                fig = px.line(df_propre, x='Date', y=col_g, color_discrete_sequence=["#2E75B6"])
-                mn, mx = PLAGES_NORMALES.get(col_g, (None, None))
-                if mn: fig.add_hline(y=mn, line_dash="dash", line_color="orange", annotation_text="Min")
-                if mx: fig.add_hline(y=mx, line_dash="dash", line_color="red",    annotation_text="Max")
-                fig.update_layout(plot_bgcolor='white', paper_bgcolor='white')
-                st.plotly_chart(fig, use_container_width=True)
+# ─── ÉTAPE 5 : TOUJOURS AFFICHÉ si données prêtes ───────────────────
+if st.session_state.get('df_pret'):
+    df_propre = st.session_state['df']
 
-        st.markdown('<div class="alerte-verte">Module 1 terminé ! Passez au Module 2.</div>', unsafe_allow_html=True)
+    st.markdown("---")
+    st.markdown("### Etape 5 — Aperçu")
+    tab1, tab2, tab3 = st.tabs(["Tableau", "Statistiques", "Graphiques"])
+    with tab1:
+        st.dataframe(df_propre, use_container_width=True, height=350)
+        st.download_button("Télécharger (CSV)", data=df_propre.to_csv(index=False, encoding='utf-8-sig'), file_name="donnees_propres.csv", mime="text/csv")
+    with tab2:
+        st.dataframe(get_statistiques(df_propre), use_container_width=True)
+        for al in verifier_plages(df_propre):
+            st.markdown(f'<div class="alerte-orange"><b>{al["colonne"]}</b> : {al["nb_hors_plage"]} valeurs hors [{al["plage_normale"]}]</div>', unsafe_allow_html=True)
+    with tab3:
+        col_g = st.selectbox("Paramètre :", [c for c in PLAGES_NORMALES if c in df_propre.columns], key="sel_g1")
+        if 'Date' in df_propre.columns:
+            fig = px.line(df_propre, x='Date', y=col_g, color_discrete_sequence=["#2E75B6"])
+            mn, mx = PLAGES_NORMALES.get(col_g, (None, None))
+            if mn: fig.add_hline(y=mn, line_dash="dash", line_color="orange", annotation_text="Min")
+            if mx: fig.add_hline(y=mx, line_dash="dash", line_color="red",    annotation_text="Max")
+            fig.update_layout(plot_bgcolor='white', paper_bgcolor='white')
+            st.plotly_chart(fig, use_container_width=True)
 
-    elif st.session_state.get('df_pret'):
-        st.markdown('<div class="alerte-verte">Données déjà chargées. Passez au Module 2.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="alerte-verte">Module 1 terminé ! Passez au Module 2.</div>', unsafe_allow_html=True)
+elif st.session_state.get('df_pret'):
+    st.markdown('<div class="alerte-verte">Données déjà chargées. Passez au Module 2.</div>', unsafe_allow_html=True)
 
 # ==============================================================
 # MODULE 2

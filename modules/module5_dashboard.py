@@ -1,13 +1,3 @@
-# =============================================================
-# MODULE 5 : TABLEAU DE BORD (DASHBOARD)
-# Centrale Thermique de La Goulette - STEG
-# =============================================================
-# Affiche une vue synthétique de tous les indicateurs clés :
-#   - KPIs en temps quasi réel
-#   - Graphiques d'évolution multi-paramètres
-#   - Alertes et messages d'aide à la décision
-#   - Résumé des modules 2, 3 et 4
-# =============================================================
 
 import pandas as pd
 import numpy as np
